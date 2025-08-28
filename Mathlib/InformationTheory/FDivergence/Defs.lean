@@ -58,6 +58,17 @@ def todo (f : (Θ → ℝ≥0∞) → ℝ≥0∞) (P : Kernel Θ 𝓧) (μ : Mea
 
 end TODO
 
+/-
+`f : ℝ≥0∞ → ℝ≥0∞ → ℝ≥0∞`
+`f (a • x) (a • y) = a • f x y`
+`f` l.s.c.
+`f` convex
+
+Consequences:
+`f x y = x * f 1 (y / x)` if `x ≠ 0`
+`f x y = y * f (x / y) 1` if `y ≠ 0`
+-/
+
 noncomputable
 def fDiv' (f : DivFunction) (μ ν : Measure 𝓧) : ℝ≥0∞ :=
   ∫⁻ x, perspective f ((∂μ/∂(μ + ν)) x) ((∂ν/∂(μ + ν)) x) ∂(μ + ν)
