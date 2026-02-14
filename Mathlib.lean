@@ -4543,6 +4543,7 @@ public import Mathlib.InformationTheory.Hamming
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.InformationTheory.KullbackLeibler.KLFun
 public import Mathlib.InformationTheory.MutualInformation.Basic
+public import Mathlib.InformationTheory.Renyi.Basic
 public import Mathlib.Init
 public import Mathlib.Lean.ContextInfo
 public import Mathlib.Lean.CoreM
