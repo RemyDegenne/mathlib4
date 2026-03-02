@@ -26,35 +26,28 @@ public import Mathlib.Analysis.Matrix.Order
 
 @[expose] public section
 
-open EMetric Set
-open scoped ENNReal NNReal MatrixOrder
-
-
-open MeasureTheory ProbabilityTheory Filter Matrix NormedSpace WithLp
-open scoped ENNReal NNReal Topology RealInnerProductSpace
+open MeasureTheory Matrix WithLp
+open scoped RealInnerProductSpace MatrixOrder
 
 section InnerProductSpace
 
 open scoped InnerProductSpace
 
-theorem OrthonormalBasis.norm_sq_eq_sum_sq_inner_right {ι E : Type*} [NormedAddCommGroup E]
-    [InnerProductSpace ℝ E] [Fintype ι] (b : OrthonormalBasis ι ℝ E) (x : E) :
-    ‖x‖ ^ 2 = ∑ i, ⟪b i, x⟫_ℝ ^ 2 := by
-  rw [← b.sum_sq_norm_inner_right]
-  simp
+variable {ι E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [Fintype ι]
 
-theorem OrthonormalBasis.norm_sq_eq_sum_sq_inner_left {ι E : Type*} [NormedAddCommGroup E]
-    [InnerProductSpace ℝ E] [Fintype ι] (b : OrthonormalBasis ι ℝ E) (x : E) :
+theorem OrthonormalBasis.norm_sq_eq_sum_sq_inner_right (b : OrthonormalBasis ι ℝ E) (x : E) :
+    ‖x‖ ^ 2 = ∑ i, ⟪b i, x⟫_ℝ ^ 2 := by
+  simp [← b.sum_sq_norm_inner_right]
+
+theorem OrthonormalBasis.norm_sq_eq_sum_sq_inner_left (b : OrthonormalBasis ι ℝ E) (x : E) :
     ‖x‖ ^ 2 = ∑ i, ⟪x, b i⟫_ℝ ^ 2 := by
   simp_rw [b.norm_sq_eq_sum_sq_inner_right, real_inner_comm]
 
-theorem EuclideanSpace.real_norm_sq_eq {n : Type*} [Fintype n] (x : EuclideanSpace ℝ n) :
+theorem EuclideanSpace.real_norm_sq_eq (x : EuclideanSpace ℝ ι) :
     ‖x‖ ^ 2 = ∑ i, (x i) ^ 2 := by
-  rw [PiLp.norm_sq_eq_of_L2]
-  congr with i; simp
+  simp [PiLp.norm_sq_eq_of_L2]
 
-theorem OrthonormalBasis.norm_dual {ι E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
-    [Fintype ι] (b : OrthonormalBasis ι ℝ E) (L : StrongDual ℝ E) :
+theorem OrthonormalBasis.norm_dual (b : OrthonormalBasis ι ℝ E) (L : StrongDual ℝ E) :
     ‖L‖ ^ 2 = ∑ i, L (b i) ^ 2 := by
   have := Module.Basis.finiteDimensional_of_finite b.toBasis
   simp_rw [← (InnerProductSpace.toDual ℝ E).symm.norm_map, b.norm_sq_eq_sum_sq_inner_left,
