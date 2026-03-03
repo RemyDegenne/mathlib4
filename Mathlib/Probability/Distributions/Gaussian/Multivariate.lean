@@ -5,15 +5,14 @@ Authors: Rémy Degenne, Etienne Marion
 -/
 module
 
-public import Mathlib.Probability.Distributions.Gaussian.CharFun
-public import Mathlib.Probability.Distributions.Gaussian.Fernique
-public import Mathlib.Probability.Moments.CovarianceBilinDual
-public import Mathlib.Probability.Moments.Variance
-public import Mathlib.Analysis.InnerProductSpace.Dual
-public import Mathlib.Analysis.InnerProductSpace.PiL2
-public import Mathlib.LinearAlgebra.Matrix.PosDef
 public import Mathlib.Analysis.CStarAlgebra.Matrix
-public import Mathlib.Analysis.Matrix.Order
+public import Mathlib.Probability.Distributions.Gaussian.Basic
+public import Mathlib.Probability.Moments.CovarianceBilin
+public import Mathlib.Probability.Moments.Variance
+
+import Mathlib.Analysis.Matrix.Order
+import Mathlib.Probability.Distributions.Gaussian.CharFun
+import Mathlib.Probability.Distributions.Gaussian.Fernique
 
 /-!
 # Multivariate Gaussian distributions
@@ -126,6 +125,7 @@ lemma variance_dual_stdGaussian (L : StrongDual ℝ E) : Var[L; stdGaussian E] =
     simp
   · exact fun i ↦ IsGaussian.memLp_two_id.const_mul _
 
+set_option backward.isDefEq.respectTransparency false in
 lemma charFun_stdGaussian (t : E) : charFun (stdGaussian E) t = Complex.exp (- ‖t‖ ^ 2 / 2) := by
   rw [charFun_apply, stdGaussian, integral_map (Measurable.aemeasurable (by fun_prop))
     (Measurable.aestronglyMeasurable (by fun_prop))]
@@ -139,6 +139,7 @@ lemma charFun_stdGaussian (t : E) : charFun (stdGaussian E) t = Complex.exp (- �
   simp_rw [← Complex.exp_sum, Finset.sum_neg_distrib, ← Finset.sum_div, ← Complex.ofReal_pow,
     ← Complex.ofReal_sum, ← (stdOrthonormalBasis ℝ E).norm_sq_eq_sum_sq_inner_right, neg_div]
 
+set_option backward.isDefEq.respectTransparency false in
 instance isGaussian_stdGaussian : IsGaussian (stdGaussian E) := by
   refine isGaussian_iff_gaussian_charFun.2 ⟨0, innerSL ℝ, ?_, ?_⟩
   · rw [LinearMap.BilinForm.isPosSemidef_iff]
@@ -149,12 +150,14 @@ instance isGaussian_stdGaussian : IsGaussian (stdGaussian E) := by
     rw [innerSL_apply_apply]
     simp
 
+set_option backward.isDefEq.respectTransparency false in
 lemma charFunDual_stdGaussian (L : StrongDual ℝ E) :
     charFunDual (stdGaussian E) L = Complex.exp (- ‖L‖ ^ 2 / 2) := by
   rw [IsGaussian.charFunDual_eq, integral_complex_ofReal, integral_strongDual_stdGaussian,
     variance_dual_stdGaussian]
   simp [neg_div]
 
+set_option backward.isDefEq.respectTransparency false in
 lemma covarianceBilin_stdGaussian :
     covarianceBilin (stdGaussian E) = innerSL ℝ := by
   refine gaussian_charFun_congr 0 _ ?_ (fun t ↦ ?_) |>.2.symm
@@ -195,6 +198,7 @@ lemma stdGaussian_eq_pi_map_orthonormalBasis {ι : Type*} [Fintype ι] (b : Orth
 
 variable {ι : Type*} [Fintype ι] [DecidableEq ι]
 
+set_option backward.isDefEq.respectTransparency false in
 /-- Multivariate Gaussian measure on `EuclideanSpace ℝ ι` with mean `μ` and covariance
 matrix `S`. -/
 noncomputable
@@ -202,6 +206,7 @@ def multivariateGaussian (μ : EuclideanSpace ℝ ι) (S : Matrix ι ι ℝ) :
     Measure (EuclideanSpace ℝ ι) :=
   (stdGaussian (EuclideanSpace ℝ ι)).map (fun x ↦ μ + toEuclideanCLM (𝕜 := ℝ) (CFC.sqrt S) x)
 
+set_option backward.isDefEq.respectTransparency false in
 @[simp]
 lemma multivariateGaussian_zero_one :
     multivariateGaussian 0 (1 : Matrix ι ι ℝ) = stdGaussian (EuclideanSpace ℝ ι) := by
@@ -209,6 +214,7 @@ lemma multivariateGaussian_zero_one :
 
 variable {μ : EuclideanSpace ℝ ι} {S : Matrix ι ι ℝ} {hS : S.PosSemidef}
 
+set_option backward.isDefEq.respectTransparency false in
 instance isGaussian_multivariateGaussian : IsGaussian (multivariateGaussian μ S) := by
   have h : (fun x ↦ μ + x) ∘ ((toEuclideanCLM (𝕜 := ℝ) (CFC.sqrt S))) =
     (fun x ↦ μ + (toEuclideanCLM (𝕜 := ℝ) (CFC.sqrt S)) x) := rfl
