@@ -62,31 +62,21 @@ end InnerProductSpace
 
 namespace ProbabilityTheory
 
-section iIndepFun
-
-variable {ι : Type*} [Fintype ι] {Ω : ι → Type*} {mΩ : ∀ i, MeasurableSpace (Ω i)}
-  {μ : (i : ι) → Measure (Ω i)}
-
-variable [∀ i, IsProbabilityMeasure (μ i)]
-
-lemma variance_pi {X : Π i, Ω i → ℝ} (h : ∀ i, MemLp (X i) 2 (μ i)) :
-    Var[∑ i, fun ω ↦ X i (ω i); Measure.pi μ] = ∑ i, Var[X i; μ i] := by
-  rw [IndepFun.variance_sum]
-  · congr with i
-    change Var[(X i) ∘ (fun ω ↦ ω i); Measure.pi μ] = _
-    rw [← variance_map, (measurePreserving_eval _ i).map_eq]
-    · rw [(measurePreserving_eval _ i).map_eq]
-      exact (h i).aestronglyMeasurable.aemeasurable
-    · exact Measurable.aemeasurable (by fun_prop)
-  · exact fun i _ ↦ (h i).comp_measurePreserving (measurePreserving_eval _ i)
-  · exact fun i _ j _ hij ↦
-      (iIndepFun_pi fun i ↦ (h i).aestronglyMeasurable.aemeasurable).indepFun hij
-
-end iIndepFun
-
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
   [MeasurableSpace E]
-  {d : ℕ}
+
+omit [FiniteDimensional ℝ E] [MeasurableSpace E] in
+lemma isSymm_inner : LinearMap.IsSymm (innerₗ E) where
+  eq x y := by simp only [innerₗ_apply_apply, RingHom.id_apply]; rw [real_inner_comm]
+
+omit [FiniteDimensional ℝ E] [MeasurableSpace E] in
+lemma isNonneg_inner : LinearMap.IsNonneg (innerₗ E) where
+  nonneg x := by simp
+
+omit [FiniteDimensional ℝ E] [MeasurableSpace E] in
+lemma isPosSemidef_inner : LinearMap.IsPosSemidef (innerₗ E) where
+  isSymm := isSymm_inner
+  isNonneg := isNonneg_inner
 
 variable (E) in
 /-- Standard Gaussian distribution on `E`. -/
@@ -109,8 +99,7 @@ lemma integral_id_stdGaussian : ∫ x, x ∂(stdGaussian E) = 0 := by
   · refine fun i _ ↦ Integrable.smul_const ?_ _
     convert integrable_comp_eval (i := i) (f := id) ?_
     · infer_instance
-    · rw [← memLp_one_iff_integrable]
-      exact memLp_id_gaussianReal 1
+    · exact IsGaussian.integrable_id
   refine Finset.sum_eq_zero fun i _ ↦ ?_
   have : (∫ (a : Fin (Module.finrank ℝ E) → ℝ), a i ∂Measure.pi fun x ↦ gaussianReal 0 1)
       = ∫ x, x ∂gaussianReal 0 1 := by
@@ -118,55 +107,37 @@ lemma integral_id_stdGaussian : ∫ x, x ∂(stdGaussian E) = 0 := by
     all_goals infer_instance
   simp [integral_smul_const, this]
 
-lemma isCentered_stdGaussian : ∀ L : StrongDual ℝ E, (stdGaussian E)[L] = 0 := by
-  intro L
+@[simp]
+lemma integral_strongDual_stdGaussian (L : StrongDual ℝ E) : (stdGaussian E)[L] = 0 := by
   rw [L.integral_comp_id_comm, integral_id_stdGaussian, map_zero]
-  rw [stdGaussian, integrable_map_measure]
-  · rw [Function.id_comp]
-    exact integrable_finset_sum _ fun i _ ↦ Integrable.smul_const
+  rw [stdGaussian, integrable_map_measure aestronglyMeasurable_id, Function.id_comp]
+  · exact integrable_finset_sum _ fun i _ ↦ Integrable.smul_const
       (integrable_comp_eval (f := id) IsGaussian.integrable_id) _
-  · exact aestronglyMeasurable_id
   · exact Measurable.aemeasurable (by fun_prop)
 
 lemma variance_dual_stdGaussian (L : StrongDual ℝ E) : Var[L; stdGaussian E] = ‖L‖ ^ 2 := by
-  rw [stdGaussian, variance_map]
-  · have : L ∘ (fun x : Fin (Module.finrank ℝ E) → ℝ ↦ ∑ i, x i • stdOrthonormalBasis ℝ E i) =
-        ∑ i, (fun x : Fin (Module.finrank ℝ E) → ℝ ↦ L (stdOrthonormalBasis ℝ E i) * x i) := by
-      ext x; simp [mul_comm]
-    rw [this, variance_pi]
-    · change ∑ i, Var[fun x ↦ _ * (id x); gaussianReal 0 1] = _
-      simp_rw [variance_const_mul, variance_id_gaussianReal, (stdOrthonormalBasis ℝ E).norm_dual]
-      simp
-    · exact fun i ↦ IsGaussian.memLp_two_id.const_mul _
-  · exact L.continuous.aemeasurable
-  · exact Measurable.aemeasurable (by fun_prop)
+  rw [stdGaussian, variance_map L.continuous.aemeasurable (Measurable.aemeasurable (by fun_prop))]
+  have : L ∘ (fun x : Fin (Module.finrank ℝ E) → ℝ ↦ ∑ i, x i • stdOrthonormalBasis ℝ E i) =
+      ∑ i, (fun x : Fin (Module.finrank ℝ E) → ℝ ↦ L (stdOrthonormalBasis ℝ E i) * x i) := by
+    ext x; simp [mul_comm]
+  rw [this, variance_sum_pi]
+  · change ∑ i, Var[fun x ↦ _ * (id x); gaussianReal 0 1] = _
+    simp_rw [variance_const_mul, variance_id_gaussianReal, (stdOrthonormalBasis ℝ E).norm_dual]
+    simp
+  · exact fun i ↦ IsGaussian.memLp_two_id.const_mul _
 
 lemma charFun_stdGaussian (t : E) : charFun (stdGaussian E) t = Complex.exp (- ‖t‖ ^ 2 / 2) := by
-  rw [charFun_apply, stdGaussian, integral_map]
-  · simp_rw [sum_inner, Complex.ofReal_sum, Finset.sum_mul, Complex.exp_sum,
-      integral_fintype_prod_eq_prod
-        (f := fun i x ↦ Complex.exp (⟪x • stdOrthonormalBasis ℝ E i, t⟫ * Complex.I)),
-      real_inner_smul_left, mul_comm _ (⟪_, _⟫), Complex.ofReal_mul, ← charFun_apply_real,
-      charFun_gaussianReal]
-    simp only [Complex.ofReal_zero, mul_zero, zero_mul, NNReal.coe_one, Complex.ofReal_one, one_mul,
-      zero_sub]
-    simp_rw [← Complex.exp_sum, Finset.sum_neg_distrib, ← Finset.sum_div, ← Complex.ofReal_pow,
-      ← Complex.ofReal_sum, ← (stdOrthonormalBasis ℝ E).norm_sq_eq_sum_sq_inner_right, neg_div]
-  · exact Measurable.aemeasurable (by fun_prop)
-  · exact Measurable.aestronglyMeasurable (by fun_prop)
-
-omit [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] in
-lemma isSymm_inner : LinearMap.IsSymm (innerₗ E) where
-  eq x y := by simp only [innerₗ_apply_apply, RingHom.id_apply]; rw [real_inner_comm]
-
-omit [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] in
-lemma isNonneg_inner : LinearMap.IsNonneg (innerₗ E) where
-  nonneg x := by simp
-
-omit [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] in
-lemma isPosSemidef_inner : LinearMap.IsPosSemidef (innerₗ E) where
-  isSymm := isSymm_inner
-  isNonneg := isNonneg_inner
+  rw [charFun_apply, stdGaussian, integral_map (Measurable.aemeasurable (by fun_prop))
+    (Measurable.aestronglyMeasurable (by fun_prop))]
+  simp_rw [sum_inner, Complex.ofReal_sum, Finset.sum_mul, Complex.exp_sum,
+    integral_fintype_prod_eq_prod
+      (f := fun i x ↦ Complex.exp (⟪x • stdOrthonormalBasis ℝ E i, t⟫ * Complex.I)),
+    real_inner_smul_left, mul_comm _ (⟪_, _⟫), Complex.ofReal_mul, ← charFun_apply_real,
+    charFun_gaussianReal]
+  simp only [Complex.ofReal_zero, mul_zero, zero_mul, NNReal.coe_one, Complex.ofReal_one, one_mul,
+    zero_sub]
+  simp_rw [← Complex.exp_sum, Finset.sum_neg_distrib, ← Finset.sum_div, ← Complex.ofReal_pow,
+    ← Complex.ofReal_sum, ← (stdOrthonormalBasis ℝ E).norm_sq_eq_sum_sq_inner_right, neg_div]
 
 instance isGaussian_stdGaussian : IsGaussian (stdGaussian E) := by
   refine isGaussian_iff_gaussian_charFun.2 ⟨0, innerSL ℝ, ?_, ?_⟩
@@ -180,7 +151,7 @@ instance isGaussian_stdGaussian : IsGaussian (stdGaussian E) := by
 
 lemma charFunDual_stdGaussian (L : StrongDual ℝ E) :
     charFunDual (stdGaussian E) L = Complex.exp (- ‖L‖ ^ 2 / 2) := by
-  rw [IsGaussian.charFunDual_eq, integral_complex_ofReal, isCentered_stdGaussian,
+  rw [IsGaussian.charFunDual_eq, integral_complex_ofReal, integral_strongDual_stdGaussian,
     variance_dual_stdGaussian]
   simp [neg_div]
 
@@ -206,9 +177,6 @@ lemma stdGaussian_map {F : Type*} [NormedAddCommGroup F] [InnerProductSpace ℝ 
 
 lemma pi_eq_stdGaussian {n : Type*} [Fintype n] :
     (Measure.pi (fun _ ↦ gaussianReal 0 1)).map (toLp 2) = stdGaussian (EuclideanSpace ℝ n) := by
-  -- This instance is not found automatically, probably a defeq issue between
-  -- `n → ℝ` and `EuclideanSpace ℝ n`.
-  have : IsFiniteMeasure (Measure.pi fun _ : n ↦ gaussianReal 0 1) := inferInstance
   apply Measure.ext_of_charFun (E := EuclideanSpace ℝ n)
   ext t
   simp_rw [charFun_stdGaussian, charFun_pi, charFun_gaussianReal, ← Complex.exp_sum,
