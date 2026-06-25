@@ -167,6 +167,15 @@ lemma compProd_sum_right {ι : Type*} [Countable ι] {κ : ι → Kernel α β}
   rw [compProd, ← Kernel.sum_prodMkLeft, Kernel.compProd_sum_right]
   rfl
 
+/-- If `κ` is a Markov kernel, use instead `fst_compProd` to get `(μ ⊗ₘ κ).fst = μ`. -/
+lemma fst_compProd_apply (μ : Measure α) [SFinite μ] (κ : Kernel α β) [IsSFiniteKernel κ]
+    {s : Set α} (hs : MeasurableSet s) :
+    (μ ⊗ₘ κ).fst s = ∫⁻ b, s.indicator (fun b ↦ κ b Set.univ) b ∂μ := by
+  rw [Measure.fst_apply hs, Measure.compProd_apply (by measurability)]
+  have h_eq b : κ b {c | b ∈ s} = s.indicator (fun b ↦ κ b Set.univ) b := by
+    by_cases hb : b ∈ s <;> simp [hb]
+  simp_rw [Set.preimage, Set.mem_setOf_eq, h_eq]
+
 @[simp]
 lemma fst_compProd (μ : Measure α) [SFinite μ] (κ : Kernel α β) [IsMarkovKernel κ] :
     (μ ⊗ₘ κ).fst = μ := by

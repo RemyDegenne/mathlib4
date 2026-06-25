@@ -51,10 +51,11 @@ open scoped ENNReal MeasureTheory ProbabilityTheory
 
 namespace ProbabilityTheory
 
-variable {α β Ω F : Type*} [MeasurableSpace Ω] [StandardBorelSpace Ω]
+variable {α β Ω F : Type*} [MeasurableSpace Ω]
   [Nonempty Ω] [NormedAddCommGroup F] {mα : MeasurableSpace α} {μ : Measure α} [IsFiniteMeasure μ]
   {X : α → β} {Y : α → Ω}
 
+open Classical in
 /-- **Regular conditional probability distribution**: kernel associated with the conditional
 expectation of `Y` given `X`.
 For almost all `a`, `condDistrib Y X μ` evaluated at `X a` and a measurable set `s` is equal to
@@ -63,10 +64,19 @@ the conditional expectation `μ⟦Y ⁻¹' s | mβ.comap X⟧ a`. It also satisf
 for all integrable functions `f`. -/
 noncomputable irreducible_def condDistrib {_ : MeasurableSpace α} [MeasurableSpace β] (Y : α → Ω)
     (X : α → β) (μ : Measure α) [IsFiniteMeasure μ] : Kernel β Ω :=
-  (μ.map fun a => (X a, Y a)).condKernel
+  if h : (μ.map fun a => (X a, Y a)).HasCondKernel then
+    (μ.map fun a => (X a, Y a)).condKernel
+  else
+    Kernel.deterministic (fun _ ↦ Nonempty.some inferInstance) (by fun_prop)
 
 instance [MeasurableSpace β] : IsMarkovKernel (condDistrib Y X μ) := by
-  rw [condDistrib]; infer_instance
+  rw [condDistrib]
+  split_ifs with h <;> infer_instance
+
+lemma condDistrib_of_hasCondKernel {_ : MeasurableSpace β}
+    [Measure.HasCondKernel (μ.map fun a => (X a, Y a))] :
+    condDistrib Y X μ = (μ.map fun a => (X a, Y a)).condKernel := by
+  rw [condDistrib, dif_pos]
 
 variable {mβ : MeasurableSpace β} {s : Set Ω} {t : Set β} {f : β × Ω → F}
 
@@ -79,20 +89,28 @@ lemma condDistrib_apply_of_ne_zero [MeasurableSingletonClass β]
   · rw [Measure.fst_map_prodMk hY]
   · rwa [Measure.fst_map_prodMk hY]
 
-lemma compProd_map_condDistrib (hY : AEMeasurable Y μ) :
+lemma compProd_map_condDistrib [(μ.map fun a => (X a, Y a)).HasCondKernel] (hY : AEMeasurable Y μ) :
     (μ.map X) ⊗ₘ condDistrib Y X μ = μ.map fun a ↦ (X a, Y a) := by
-  rw [condDistrib, ← Measure.fst_map_prodMk₀ hY, Measure.disintegrate]
+  rw [condDistrib_of_hasCondKernel, ← Measure.fst_map_prodMk₀ hY, Measure.disintegrate]
+  exact Measure.isCondKernel_condKernel _
 
-lemma condDistrib_comp_map (hX : AEMeasurable X μ) (hY : AEMeasurable Y μ) :
+lemma condDistrib_comp_map [(μ.map fun a => (X a, Y a)).HasCondKernel]
+    (hX : AEMeasurable X μ) (hY : AEMeasurable Y μ) :
     condDistrib Y X μ ∘ₘ (μ.map X) = μ.map Y := by
   rw [← Measure.snd_compProd, compProd_map_condDistrib hY, Measure.snd_map_prodMk₀ hX]
 
 lemma condDistrib_congr {X' : α → β} {Y' : α → Ω} (hY : Y =ᵐ[μ] Y') (hX : X =ᵐ[μ] X') :
     condDistrib Y X μ = condDistrib Y' X' μ := by
-  rw [condDistrib, condDistrib]
-  congr 1
-  rw [Measure.map_congr]
-  filter_upwards [hX, hY] with a ha hb using by rw [ha, hb]
+  have : μ.map (fun a ↦ (X a, Y a)) = μ.map (fun a ↦ (X' a, Y' a)) := by
+    rw [Measure.map_congr]
+    filter_upwards [hX, hY] with a ha hb using by rw [ha, hb]
+  rw [condDistrib]
+  simp_rw [this]
+  split_ifs with h
+  · rw [this] at h
+    rw [condDistrib_of_hasCondKernel]
+  · rw [this] at h
+    rw [condDistrib, dif_neg h]
 
 lemma condDistrib_congr_right {X' : α → β} (hX : X =ᵐ[μ] X') :
     condDistrib Y X μ = condDistrib Y X' μ :=
@@ -109,22 +127,28 @@ theorem measurable_condDistrib (hs : MeasurableSet s) :
   (Kernel.measurable_coe _ hs).comp (Measurable.of_comap_le le_rfl)
 
 theorem _root_.MeasureTheory.AEStronglyMeasurable.ae_integrable_condDistrib_map_iff
-    (hY : AEMeasurable Y μ) (hf : AEStronglyMeasurable f (μ.map fun a => (X a, Y a))) :
+    (hY : AEMeasurable Y μ) (hf : AEStronglyMeasurable f (μ.map fun a => (X a, Y a)))
+    [(μ.map fun a => (X a, Y a)).HasCondKernel] :
     (∀ᵐ a ∂μ.map X, Integrable (fun ω => f (a, ω)) (condDistrib Y X μ a)) ∧
       Integrable (fun a => ∫ ω, ‖f (a, ω)‖ ∂condDistrib Y X μ a) (μ.map X) ↔
     Integrable f (μ.map fun a => (X a, Y a)) := by
-  rw [condDistrib, ← hf.ae_integrable_condKernel_iff, Measure.fst_map_prodMk₀ hY]
+  rw [condDistrib_of_hasCondKernel, ← hf.ae_integrable_condKernel_iff, Measure.fst_map_prodMk₀ hY]
 
 variable [NormedSpace ℝ F]
 
 theorem _root_.MeasureTheory.StronglyMeasurable.integral_condDistrib (hf : StronglyMeasurable f) :
-    StronglyMeasurable (fun x ↦ ∫ y, f (x, y) ∂condDistrib Y X μ x) := by
-  rw [condDistrib]; exact hf.integral_kernel_prod_right'
+    StronglyMeasurable (fun x ↦ ∫ y, f (x, y) ∂condDistrib Y X μ x) :=
+  hf.integral_kernel_prod_right'
 
 theorem _root_.MeasureTheory.AEStronglyMeasurable.integral_condDistrib_map
     (hY : AEMeasurable Y μ) (hf : AEStronglyMeasurable f (μ.map fun a => (X a, Y a))) :
     AEStronglyMeasurable (fun x => ∫ y, f (x, y) ∂condDistrib Y X μ x) (μ.map X) := by
-  rw [← Measure.fst_map_prodMk₀ hY, condDistrib]; exact hf.integral_condKernel
+  rw [← Measure.fst_map_prodMk₀ hY]
+  by_cases h : (μ.map fun a => (X a, Y a)).HasCondKernel
+  · rw [condDistrib_of_hasCondKernel]
+    exact hf.integral_condKernel
+  · rw [condDistrib, dif_neg h]
+    sorry
 
 theorem _root_.MeasureTheory.AEStronglyMeasurable.integral_condDistrib (hX : AEMeasurable X μ)
     (hY : AEMeasurable Y μ) (hf : AEStronglyMeasurable f (μ.map fun a => (X a, Y a))) :
@@ -145,14 +169,20 @@ end Measurability
 /-- `condDistrib` is a.e. uniquely defined as the kernel satisfying the defining property of
 `condKernel`. -/
 theorem condDistrib_ae_eq_of_measure_eq_compProd_of_measurable
+    [MeasurableSpace.CountableOrCountablyGenerated β Ω]
     (hX : Measurable X) (hY : Measurable Y)
     {κ : Kernel β Ω} [IsFiniteKernel κ] (hκ : μ.map (fun x => (X x, Y x)) = μ.map X ⊗ₘ κ) :
     condDistrib Y X μ =ᵐ[μ.map X] κ := by
+  have h_cond : (μ.map fun a => (X a, Y a)).HasCondKernel := by
+    refine Measure.IsCondKernel.hasCondKernel (ρCond := κ) ?_
+    constructor
+    rw [Measure.fst_map_prodMk hY]
+    exact hκ.symm
   have heq : μ.map X = (μ.map (fun x ↦ (X x, Y x))).fst := by
     ext s hs
     rw [Measure.map_apply hX hs, Measure.fst_apply hs, Measure.map_apply]
     exacts [rfl, Measurable.prod hX hY, measurable_fst hs]
-  rw [heq, condDistrib]
+  rw [heq, condDistrib_of_hasCondKernel]
   symm
   refine eq_condKernel_of_measure_eq_compProd _ ?_
   convert! hκ
@@ -160,7 +190,7 @@ theorem condDistrib_ae_eq_of_measure_eq_compProd_of_measurable
 
 /-- `condDistrib` is a.e. uniquely defined as the kernel satisfying the defining property of
 `condKernel`. -/
-lemma condDistrib_ae_eq_of_measure_eq_compProd
+lemma condDistrib_ae_eq_of_measure_eq_compProd [MeasurableSpace.CountableOrCountablyGenerated β Ω]
     (X : α → β) (hY : AEMeasurable Y μ) {κ : Kernel β Ω} [IsFiniteKernel κ]
     (hκ : μ.map (fun x => (X x, Y x)) = μ.map X ⊗ₘ κ) :
     condDistrib Y X μ =ᵐ[μ.map X] κ := by
@@ -174,14 +204,17 @@ lemma condDistrib_ae_eq_of_measure_eq_compProd
     filter_upwards [hX.ae_eq_mk, hY.ae_eq_mk] with a haX haY using by rw [haX, haY]
   · rw [Measure.map_congr hX.ae_eq_mk]
 
-lemma condDistrib_ae_eq_iff_measure_eq_compProd
-    (X : α → β) (hY : AEMeasurable Y μ) (κ : Kernel β Ω) [IsFiniteKernel κ] :
+lemma condDistrib_ae_eq_iff_measure_eq_compProd [MeasurableSpace.CountableOrCountablyGenerated β Ω]
+    (X : α → β) (hY : AEMeasurable Y μ) (κ : Kernel β Ω) [IsFiniteKernel κ]
+    [(μ.map fun a => (X a, Y a)).HasCondKernel] :
     (condDistrib Y X μ =ᵐ[μ.map X] κ) ↔ μ.map (fun x => (X x, Y x)) = μ.map X ⊗ₘ κ := by
   refine ⟨fun h ↦ ?_, condDistrib_ae_eq_of_measure_eq_compProd X hY⟩
   rw [Measure.compProd_congr h.symm, compProd_map_condDistrib hY]
 
 lemma condDistrib_comp {Ω' : Type*} {mΩ' : MeasurableSpace Ω'} [StandardBorelSpace Ω']
-    [Nonempty Ω'] (X : α → β) (hY : AEMeasurable Y μ) {f : Ω → Ω'} (hf : Measurable f) :
+    [Nonempty Ω'] (X : α → β) (hY : AEMeasurable Y μ)
+    [(μ.map fun a => (X a, Y a)).HasCondKernel]
+    {f : Ω → Ω'} (hf : Measurable f) :
     condDistrib (f ∘ Y) X μ =ᵐ[μ.map X] (condDistrib Y X μ).map f := by
   by_cases hX : AEMeasurable X μ
   swap; · simp [Measure.map_of_not_aemeasurable hX, Filter.EventuallyEq]
@@ -193,7 +226,8 @@ lemma condDistrib_comp {Ω' : Type*} {mΩ' : MeasurableSpace Ω'} [StandardBorel
   _ = (μ.map X ⊗ₘ condDistrib Y X μ).map (Prod.map id f) := by rw [compProd_map_condDistrib hY]
   _ = μ.map X ⊗ₘ (condDistrib Y X μ).map f := by rw [Measure.compProd_map hf]
 
-lemma condDistrib_comp_self (X : α → β) {f : β → Ω} (hf : Measurable f) :
+lemma condDistrib_comp_self [MeasurableSpace.CountableOrCountablyGenerated β Ω]
+    (X : α → β) {f : β → Ω} (hf : Measurable f) :
     condDistrib (f ∘ X) X μ =ᵐ[μ.map X] Kernel.deterministic f hf := by
   by_cases hX : AEMeasurable X μ
   swap; · simp [Measure.map_of_not_aemeasurable hX, Filter.EventuallyEq]
@@ -201,10 +235,11 @@ lemma condDistrib_comp_self (X : α → β) {f : β → Ω} (hf : Measurable f) 
   rw [Measure.compProd_deterministic, AEMeasurable.map_map_of_aemeasurable (by fun_prop) hX]
   simp [Function.comp_def]
 
-lemma condDistrib_self (Y : α → Ω) : condDistrib Y Y μ =ᵐ[μ.map Y] Kernel.id := by
+lemma condDistrib_self [MeasurableSpace.CountablyGenerated Ω] (Y : α → Ω) :
+    condDistrib Y Y μ =ᵐ[μ.map Y] Kernel.id := by
   simpa using! condDistrib_comp_self Y measurable_id
 
-lemma condDistrib_const (X : α → β) (c : Ω) :
+lemma condDistrib_const [MeasurableSpace.CountableOrCountablyGenerated β Ω] (X : α → β) (c : Ω) :
     condDistrib (fun _ ↦ c) X μ =ᵐ[μ.map X]
       Kernel.deterministic (mα := mβ) (fun _ ↦ c) (by fun_prop) := by
   have : (fun _ : α ↦ c) = (fun _ : β ↦ c) ∘ X := rfl
@@ -213,6 +248,7 @@ lemma condDistrib_const (X : α → β) (c : Ω) :
   rw [hb]
 
 lemma condDistrib_map {γ : Type*} {mγ : MeasurableSpace γ}
+    [MeasurableSpace.CountableOrCountablyGenerated β Ω]
     {ν : Measure γ} [IsFiniteMeasure ν] {f : γ → α}
     (hX : AEMeasurable X (ν.map f)) (hY : AEMeasurable Y (ν.map f)) (hf : AEMeasurable f ν) :
     condDistrib Y X (ν.map f) =ᵐ[ν.map (X ∘ f)] condDistrib (Y ∘ f) (X ∘ f) ν := by
@@ -223,6 +259,7 @@ lemma condDistrib_map {γ : Type*} {mγ : MeasurableSpace γ}
   simp [Function.comp_def]
 
 lemma condDistrib_fst_prod {γ : Type*} {mγ : MeasurableSpace γ}
+    [MeasurableSpace.CountableOrCountablyGenerated β Ω]
     (X : α → β) (hY : AEMeasurable Y μ) (ν : Measure γ) [IsProbabilityMeasure ν] :
     condDistrib (fun ω ↦ Y ω.1) (fun ω ↦ X ω.1) (μ.prod ν) =ᵐ[μ.map X] condDistrib Y X μ := by
   by_cases hX : AEMeasurable X μ
@@ -235,6 +272,7 @@ lemma condDistrib_fst_prod {γ : Type*} {mγ : MeasurableSpace γ}
   exact h_map.symm
 
 lemma condDistrib_snd_prod {γ : Type*} {mγ : MeasurableSpace γ}
+    [MeasurableSpace.CountableOrCountablyGenerated β Ω]
     (X : α → β) (hY : AEMeasurable Y μ) (ν : Measure γ) [IsProbabilityMeasure ν] :
     condDistrib (fun ω ↦ Y ω.2) (fun ω ↦ X ω.2) (ν.prod μ) =ᵐ[μ.map X] condDistrib Y X μ := by
   by_cases hX : AEMeasurable X μ

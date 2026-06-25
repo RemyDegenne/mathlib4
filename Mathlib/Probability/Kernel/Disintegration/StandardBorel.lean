@@ -160,7 +160,7 @@ instance instIsMarkovKernelCondKernelUnitReal (κ : Kernel Unit (α × ℝ)) [Is
   infer_instance
 
 set_option backward.isDefEq.respectTransparency false in
-instance condKernelUnitReal.instIsCondKernel (κ : Kernel Unit (α × ℝ)) [IsFiniteKernel κ] :
+lemma isCondKernel_condKernelUnitReal (κ : Kernel Unit (α × ℝ)) [IsFiniteKernel κ] :
     κ.IsCondKernel κ.condKernelUnitReal where
   disintegrate := by rw [condKernelUnitReal, compProd_toKernel]; ext; simp
 
@@ -323,7 +323,7 @@ instance instIsMarkovKernelCondKernelBorel (κ : Kernel α (γ × Ω)) [IsFinite
   rw [condKernelBorel]
   infer_instance
 
-instance condKernelBorel.instIsCondKernel (κ : Kernel α (γ × Ω)) [IsFiniteKernel κ] :
+lemma isCondKernel_condKernelBorel (κ : Kernel α (γ × Ω)) [IsFiniteKernel κ] :
     κ.IsCondKernel κ.condKernelBorel where
   disintegrate := by
     rw [condKernelBorel, compProd_fst_borelMarkovFromReal _ _ (compProd_fst_condKernelReal _)]
@@ -345,9 +345,11 @@ instance instIsMarkovKernelCondKernelUnitBorel : IsMarkovKernel κ.condKernelUni
   rw [condKernelUnitBorel]
   infer_instance
 
-instance condKernelUnitBorel.instIsCondKernel : κ.IsCondKernel κ.condKernelUnitBorel where
+lemma isCondKernel_condKernelUnitBorel (κ : Kernel Unit (α × Ω)) [IsFiniteKernel κ] :
+    κ.IsCondKernel κ.condKernelUnitBorel where
   disintegrate := by
-    rw [condKernelUnitBorel, compProd_fst_borelMarkovFromReal _ _ (disintegrate _ _)]
+    rw [condKernelUnitBorel, compProd_fst_borelMarkovFromReal _ _ (disintegrate _)]
+    exact isCondKernel_condKernelUnitReal (κ.map (Prod.map id (embeddingReal Ω)))
 
 end Unit
 
@@ -358,38 +360,45 @@ variable {ρ : Measure (α × Ω)} [IsFiniteMeasure ρ]
 /-- Conditional kernel of a measure on a product space: a Markov kernel such that
 `ρ = ρ.fst ⊗ₘ ρ.condKernel` (see `MeasureTheory.Measure.compProd_fst_condKernel`). -/
 noncomputable
-irreducible_def _root_.MeasureTheory.Measure.condKernel (ρ : Measure (α × Ω)) [IsFiniteMeasure ρ] :
+irreducible_def _root_.MeasureTheory.Measure.condKernelStdBorel
+    (ρ : Measure (α × Ω)) [IsFiniteMeasure ρ] :
     Kernel α Ω :=
   comap (condKernelUnitBorel (const Unit ρ)) (fun a ↦ ((), a)) measurable_prodMk_left
 
-lemma _root_.MeasureTheory.Measure.condKernel_apply (ρ : Measure (α × Ω)) [IsFiniteMeasure ρ]
-    (a : α) :
-    ρ.condKernel a = condKernelUnitBorel (const Unit ρ) ((), a) := by
-  rw [Measure.condKernel]; rfl
+lemma _root_.MeasureTheory.Measure.condKernelStdBorel_apply
+    (ρ : Measure (α × Ω)) [IsFiniteMeasure ρ] (a : α) :
+    ρ.condKernelStdBorel a = condKernelUnitBorel (const Unit ρ) ((), a) := by
+  rw [Measure.condKernelStdBorel]; rfl
 
-instance _root_.MeasureTheory.Measure.condKernel.instIsCondKernel (ρ : Measure (α × Ω))
-    [IsFiniteMeasure ρ] : ρ.IsCondKernel ρ.condKernel where
+lemma _root_.MeasureTheory.Measure.isCondKernel_condKernelStdBorel (ρ : Measure (α × Ω))
+    [IsFiniteMeasure ρ] : ρ.IsCondKernel ρ.condKernelStdBorel where
   disintegrate := by
     have h1 : const Unit (Measure.fst ρ) = fst (const Unit ρ) := by
       ext
       simp only [fst_apply, Measure.fst, const_apply]
-    have h2 : prodMkLeft Unit (Measure.condKernel ρ) = condKernelUnitBorel (const Unit ρ) := by
+    have h2 : prodMkLeft Unit (Measure.condKernelStdBorel ρ) =
+        condKernelUnitBorel (const Unit ρ) := by
       ext
-      simp only [prodMkLeft_apply, Measure.condKernel_apply]
+      simp only [prodMkLeft_apply, Measure.condKernelStdBorel_apply]
     rw [Measure.compProd, h1, h2, disintegrate]
-    simp
+    · simp
+    · exact isCondKernel_condKernelUnitBorel (const Unit ρ)
 
-instance _root_.MeasureTheory.Measure.instIsMarkovKernelCondKernel
-    (ρ : Measure (α × Ω)) [IsFiniteMeasure ρ] : IsMarkovKernel ρ.condKernel := by
-  rw [Measure.condKernel]
+instance _root_.MeasureTheory.Measure.instIsMarkovKernelCondKernelStdBorel
+    (ρ : Measure (α × Ω)) [IsFiniteMeasure ρ] : IsMarkovKernel ρ.condKernelStdBorel := by
+  rw [Measure.condKernelStdBorel]
   infer_instance
 
+/-- In a standard Borel space, every finite measure has a conditional kernel. -/
+instance (ρ : Measure (α × Ω)) [IsFiniteMeasure ρ] : ρ.HasCondKernel where
+  exists_condKernel := ⟨ρ.condKernelStdBorel, ρ.isCondKernel_condKernelStdBorel, inferInstance⟩
+
 /-- If the singleton `{x}` has non-zero mass for `ρ.fst`, then for all `s : Set Ω`,
-`ρ.condKernel x s = (ρ.fst {x})⁻¹ * ρ ({x} ×ˢ s)` . -/
-lemma _root_.MeasureTheory.Measure.condKernel_apply_of_ne_zero [MeasurableSingletonClass α]
+`ρ.condKernelStdBorel x s = (ρ.fst {x})⁻¹ * ρ ({x} ×ˢ s)` . -/
+lemma _root_.MeasureTheory.Measure.condKernelStdBorel_apply_of_ne_zero [MeasurableSingletonClass α]
     {x : α} (hx : ρ.fst {x} ≠ 0) (s : Set Ω) :
-    ρ.condKernel x s = (ρ.fst {x})⁻¹ * ρ ({x} ×ˢ s) :=
-  Measure.IsCondKernel.apply_of_ne_zero _ _ hx _
+    ρ.condKernelStdBorel x s = (ρ.fst {x})⁻¹ * ρ ({x} ×ˢ s) :=
+  Measure.IsCondKernel.apply_of_ne_zero ρ.isCondKernel_condKernelStdBorel hx _
 
 end Measure
 
@@ -402,19 +411,29 @@ open Classical in
 It exists whenever `Ω` is standard Borel and either `α` is countable
 or `β` is countably generated. -/
 noncomputable
-irreducible_def condKernel : Kernel (α × β) Ω :=
+irreducible_def condKernelStdBorel : Kernel (α × β) Ω :=
   if hα : Countable α then
-    condKernelCountable (fun a ↦ (κ a).condKernel)
+    condKernelCountable (fun a ↦ (κ a).condKernelStdBorel)
       fun x y h ↦ by simp [apply_congr_of_mem_measurableAtom _ h]
   else letI := h.countableOrCountablyGenerated.resolve_left hα; condKernelBorel κ
 
-/-- `condKernel κ` is a Markov kernel. -/
-instance instIsMarkovKernelCondKernel : IsMarkovKernel (condKernel κ) := by
-  rw [condKernel_def]
+/-- `condKernelStdBorel κ` is a Markov kernel. -/
+instance instIsMarkovKernelCondKernelStdBorel : IsMarkovKernel (condKernelStdBorel κ) := by
+  rw [condKernelStdBorel]
   split_ifs <;> infer_instance
 
-instance condKernel.instIsCondKernel : κ.IsCondKernel κ.condKernel where
-  disintegrate := by rw [condKernel_def]; split_ifs with hα <;> exact disintegrate _ _
+lemma isCondKernel_condKernelStdBorel : κ.IsCondKernel κ.condKernelStdBorel where
+  disintegrate := by
+    rw [condKernelStdBorel]
+    split_ifs with hα
+    · exact disintegrate (isCondKernel_condKernelCountable _ _ _
+        (fun _ ↦ Measure.isCondKernel_condKernelStdBorel _))
+    · have : CountablyGenerated β := h.countableOrCountablyGenerated.resolve_left hα
+      exact disintegrate (isCondKernel_condKernelBorel _)
+
+/-- In a standard Borel space, every finite kernel has a conditional kernel. -/
+instance (κ : Kernel α (β × Ω)) [IsFiniteKernel κ] : κ.HasCondKernel where
+  exists_condKernel := ⟨κ.condKernelStdBorel, κ.isCondKernel_condKernelStdBorel, inferInstance⟩
 
 end CountableOrCountablyGenerated
 

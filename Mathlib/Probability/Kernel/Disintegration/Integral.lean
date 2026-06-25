@@ -43,26 +43,26 @@ variable [CountableOrCountablyGenerated α β] {κ : Kernel α (β × Ω)} [IsFi
 
 lemma lintegral_condKernel_mem (a : α) {s : Set (β × Ω)} (hs : MeasurableSet s) :
     ∫⁻ x, Kernel.condKernel κ (a, x) (Prod.mk x ⁻¹' s) ∂(Kernel.fst κ a) = κ a s := by
-  conv_rhs => rw [← κ.disintegrate κ.condKernel]
+  conv_rhs => rw [← κ.isCondKernel_condKernel.disintegrate]
   simp_rw [Kernel.compProd_apply hs]
 
 lemma setLIntegral_condKernel_eq_measure_prod (a : α) {s : Set β} (hs : MeasurableSet s)
     {t : Set Ω} (ht : MeasurableSet t) :
     ∫⁻ b in s, Kernel.condKernel κ (a, b) t ∂(Kernel.fst κ a) = κ a (s ×ˢ t) := by
   have : κ a (s ×ˢ t) = (Kernel.fst κ ⊗ₖ Kernel.condKernel κ) a (s ×ˢ t) := by
-    congr; exact (κ.disintegrate _).symm
+    congr; exact κ.isCondKernel_condKernel.disintegrate.symm
   simpa [this] using (Kernel.compProd_apply_prod hs ht).symm
 
 lemma lintegral_condKernel (hf : Measurable f) (a : α) :
     ∫⁻ b, ∫⁻ ω, f (b, ω) ∂(Kernel.condKernel κ (a, b)) ∂(Kernel.fst κ a) = ∫⁻ x, f x ∂(κ a) := by
-  conv_rhs => rw [← κ.disintegrate κ.condKernel]
+  conv_rhs => rw [← κ.isCondKernel_condKernel.disintegrate]
   rw [Kernel.lintegral_compProd _ _ _ hf]
 
 lemma setLIntegral_condKernel (hf : Measurable f) (a : α) {s : Set β}
     (hs : MeasurableSet s) {t : Set Ω} (ht : MeasurableSet t) :
     ∫⁻ b in s, ∫⁻ ω in t, f (b, ω) ∂(Kernel.condKernel κ (a, b)) ∂(Kernel.fst κ a)
       = ∫⁻ x in s ×ˢ t, f x ∂(κ a) := by
-  conv_rhs => rw [← κ.disintegrate κ.condKernel]
+  conv_rhs => rw [← κ.isCondKernel_condKernel.disintegrate]
   rw [Kernel.setLIntegral_compProd _ _ _ hf hs ht]
 
 lemma setLIntegral_condKernel_univ_right (hf : Measurable f) (a : α) {s : Set β}
@@ -88,21 +88,21 @@ lemma _root_.MeasureTheory.AEStronglyMeasurable.integral_kernel_condKernel (a : 
     (hf : AEStronglyMeasurable f (κ a)) :
     AEStronglyMeasurable (fun x ↦ ∫ y, f (x, y) ∂(Kernel.condKernel κ (a, x)))
       (Kernel.fst κ a) := by
-  rw [← κ.disintegrate κ.condKernel] at hf
+  rw [← κ.isCondKernel_condKernel.disintegrate] at hf
   exact AEStronglyMeasurable.integral_kernel_compProd hf
 
 lemma integral_condKernel (a : α) (hf : Integrable f (κ a)) :
     ∫ b, ∫ ω, f (b, ω) ∂(Kernel.condKernel κ (a, b)) ∂(Kernel.fst κ a) = ∫ x, f x ∂(κ a) := by
-  conv_rhs => rw [← κ.disintegrate κ.condKernel]
-  rw [← κ.disintegrate κ.condKernel] at hf
+  conv_rhs => rw [← κ.isCondKernel_condKernel.disintegrate]
+  rw [← κ.isCondKernel_condKernel.disintegrate] at hf
   rw [integral_compProd hf]
 
 lemma setIntegral_condKernel (a : α) {s : Set β} (hs : MeasurableSet s)
     {t : Set Ω} (ht : MeasurableSet t) (hf : IntegrableOn f (s ×ˢ t) (κ a)) :
     ∫ b in s, ∫ ω in t, f (b, ω) ∂(Kernel.condKernel κ (a, b)) ∂(Kernel.fst κ a)
       = ∫ x in s ×ˢ t, f x ∂(κ a) := by
-  conv_rhs => rw [← κ.disintegrate κ.condKernel]
-  rw [← κ.disintegrate κ.condKernel] at hf
+  conv_rhs => rw [← κ.isCondKernel_condKernel.disintegrate]
+  rw [← κ.isCondKernel_condKernel.disintegrate] at hf
   rw [setIntegral_compProd hs ht hf]
 
 lemma setIntegral_condKernel_univ_right (a : α) {s : Set β} (hs : MeasurableSet s)
@@ -123,17 +123,16 @@ end ProbabilityTheory
 
 namespace MeasureTheory.Measure
 
-variable {β Ω : Type*} {mβ : MeasurableSpace β}
-  [MeasurableSpace Ω] [StandardBorelSpace Ω] [Nonempty Ω]
+variable {β Ω : Type*} {mβ : MeasurableSpace β} {mΩ : MeasurableSpace Ω}
 
 section Lintegral
 
-variable {ρ : Measure (β × Ω)} [IsFiniteMeasure ρ]
+variable {ρ : Measure (β × Ω)} [IsFiniteMeasure ρ] [ρ.HasCondKernel]
   {f : β × Ω → ℝ≥0∞}
 
 lemma lintegral_condKernel_mem {s : Set (β × Ω)} (hs : MeasurableSet s) :
     ∫⁻ x, ρ.condKernel x {y | (x, y) ∈ s} ∂ρ.fst = ρ s := by
-  conv_rhs => rw [← ρ.disintegrate ρ.condKernel]
+  conv_rhs => rw [← ρ.isCondKernel_condKernel.disintegrate]
   simp_rw [compProd_apply hs]
   rfl
 
@@ -141,19 +140,19 @@ lemma setLIntegral_condKernel_eq_measure_prod {s : Set β} (hs : MeasurableSet s
     (ht : MeasurableSet t) :
     ∫⁻ b in s, ρ.condKernel b t ∂ρ.fst = ρ (s ×ˢ t) := by
   have : ρ (s ×ˢ t) = (ρ.fst ⊗ₘ ρ.condKernel) (s ×ˢ t) := by
-    congr; exact (ρ.disintegrate _).symm
+    congr; exact (ρ.isCondKernel_condKernel.disintegrate).symm
   simpa [this] using (compProd_apply_prod hs ht).symm
 
 lemma lintegral_condKernel (hf : Measurable f) :
     ∫⁻ b, ∫⁻ ω, f (b, ω) ∂(ρ.condKernel b) ∂ρ.fst = ∫⁻ x, f x ∂ρ := by
-  conv_rhs => rw [← ρ.disintegrate ρ.condKernel]
+  conv_rhs => rw [← ρ.isCondKernel_condKernel.disintegrate]
   rw [lintegral_compProd hf]
 
 lemma setLIntegral_condKernel (hf : Measurable f) {s : Set β}
     (hs : MeasurableSet s) {t : Set Ω} (ht : MeasurableSet t) :
     ∫⁻ b in s, ∫⁻ ω in t, f (b, ω) ∂(ρ.condKernel b) ∂ρ.fst
       = ∫⁻ x in s ×ˢ t, f x ∂ρ := by
-  conv_rhs => rw [← ρ.disintegrate ρ.condKernel]
+  conv_rhs => rw [← ρ.isCondKernel_condKernel.disintegrate]
   rw [setLIntegral_compProd hf hs ht]
 
 lemma setLIntegral_condKernel_univ_right (hf : Measurable f) {s : Set β}
@@ -172,26 +171,26 @@ end Lintegral
 
 section Integral
 
-variable {ρ : Measure (β × Ω)} [IsFiniteMeasure ρ]
+variable {ρ : Measure (β × Ω)} [IsFiniteMeasure ρ] [ρ.HasCondKernel]
   {E : Type*} {f : β × Ω → E} [NormedAddCommGroup E] [NormedSpace ℝ E]
 
 lemma _root_.MeasureTheory.AEStronglyMeasurable.integral_condKernel
     (hf : AEStronglyMeasurable f ρ) :
     AEStronglyMeasurable (fun x ↦ ∫ y, f (x, y) ∂ρ.condKernel x) ρ.fst := by
-  rw [← ρ.disintegrate ρ.condKernel] at hf
+  rw [← ρ.isCondKernel_condKernel.disintegrate] at hf
   exact AEStronglyMeasurable.integral_kernel_compProd hf
 
 lemma integral_condKernel (hf : Integrable f ρ) :
     ∫ b, ∫ ω, f (b, ω) ∂(ρ.condKernel b) ∂ρ.fst = ∫ x, f x ∂ρ := by
-  conv_rhs => rw [← ρ.disintegrate ρ.condKernel]
-  rw [← ρ.disintegrate ρ.condKernel] at hf
+  conv_rhs => rw [← ρ.isCondKernel_condKernel.disintegrate]
+  rw [← ρ.isCondKernel_condKernel.disintegrate] at hf
   rw [integral_compProd hf]
 
 lemma setIntegral_condKernel {s : Set β} (hs : MeasurableSet s)
     {t : Set Ω} (ht : MeasurableSet t) (hf : IntegrableOn f (s ×ˢ t) ρ) :
     ∫ b in s, ∫ ω in t, f (b, ω) ∂(ρ.condKernel b) ∂ρ.fst = ∫ x in s ×ˢ t, f x ∂ρ := by
-  conv_rhs => rw [← ρ.disintegrate ρ.condKernel]
-  rw [← ρ.disintegrate ρ.condKernel] at hf
+  conv_rhs => rw [← ρ.isCondKernel_condKernel.disintegrate]
+  rw [← ρ.isCondKernel_condKernel.disintegrate] at hf
   rw [setIntegral_compProd hs ht hf]
 
 lemma setIntegral_condKernel_univ_right {s : Set β} (hs : MeasurableSet s)
@@ -217,15 +216,15 @@ We place these lemmas in the `MeasureTheory` namespace to enable dot notation. -
 open ProbabilityTheory
 
 variable {α Ω E F : Type*} {mα : MeasurableSpace α} [MeasurableSpace Ω]
-  [StandardBorelSpace Ω] [Nonempty Ω] [NormedAddCommGroup E] [NormedSpace ℝ E]
-  [NormedAddCommGroup F] {ρ : Measure (α × Ω)} [IsFiniteMeasure ρ]
+  [NormedAddCommGroup E] [NormedSpace ℝ E]
+  [NormedAddCommGroup F] {ρ : Measure (α × Ω)} [IsFiniteMeasure ρ] [ρ.HasCondKernel]
 
 theorem AEStronglyMeasurable.ae_integrable_condKernel_iff {f : α × Ω → F}
     (hf : AEStronglyMeasurable f ρ) :
     (∀ᵐ a ∂ρ.fst, Integrable (fun ω ↦ f (a, ω)) (ρ.condKernel a)) ∧
       Integrable (fun a ↦ ∫ ω, ‖f (a, ω)‖ ∂ρ.condKernel a) ρ.fst ↔ Integrable f ρ := by
-  rw [← ρ.disintegrate ρ.condKernel] at hf
-  conv_rhs => rw [← ρ.disintegrate ρ.condKernel]
+  rw [← ρ.isCondKernel_condKernel.disintegrate] at hf
+  conv_rhs => rw [← ρ.isCondKernel_condKernel.disintegrate]
   rw [Measure.integrable_compProd_iff hf]
 
 theorem Integrable.condKernel_ae {f : α × Ω → F} (hf_int : Integrable f ρ) :
